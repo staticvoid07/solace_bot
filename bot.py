@@ -1,10 +1,18 @@
 import io
+import logging
 import sys
 from pathlib import Path
 from typing import Optional
 from urllib.parse import quote_plus
 
 import aiohttp
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger(__name__)
 
 try:
     import discord
@@ -150,13 +158,17 @@ async def cache_image(session: aiohttp.ClientSession, url: str):
     local_path = ICONS_DIR / filename
     if not local_path.exists():
         ICONS_DIR.mkdir(exist_ok=True)
+        log.info("Downloading image: %s", url)
         try:
             async with session.get(url, headers={"Accept-Encoding": "gzip, deflate"}) as resp:
                 if resp.status == 200:
                     local_path.write_bytes(await resp.read())
+                    log.info("Cached image: %s", filename)
                 else:
+                    log.warning("Failed to download image %s — HTTP %s", url, resp.status)
                     return None, None
-        except Exception:
+        except Exception as e:
+            log.error("Error downloading image %s: %s", url, e)
             return None, None
     return discord.File(local_path, filename=filename), f"attachment://{filename}"
 
@@ -234,6 +246,7 @@ def main():
         # Defer while the scan runs (can take several seconds)
         await interaction.response.defer()
 
+        log.info("/monday called by %s — channel %s, after %s, limit %s", interaction.user, channel_id, after_id, limit)
         result = await run_monday_scan(interaction.client, channel_id, after_id, limit)
 
         if result.get("error"):
@@ -380,35 +393,46 @@ def main():
         try:
             channel_id_int = int(channel_id)
         except ValueError:
+            log.error("TEMPLE_ACHIEVEMENTS_CHANNEL_ID is not a valid integer: %s", channel_id)
             return
 
         channel = bot.get_channel(channel_id_int)
         if not channel:
+            log.warning("Achievements channel %s not found (bot may not be in the server or cache not ready)", channel_id_int)
             return
 
+        log.info("Polling achievements for group %s", group_id)
         try:
             url = f"https://templeosrs.com/api/group_achievements.php?id={group_id}"
             headers = {"Accept-Encoding": "gzip, deflate"}
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as resp:
+                    log.info("TempleOSRS achievements API response: HTTP %s", resp.status)
                     if resp.status != 200:
+                        log.warning("Unexpected status from achievements API: %s", resp.status)
                         return
                     data = await resp.json(content_type=None)
 
                 achievements = data if isinstance(data, list) else data.get("data", [])
                 if not achievements:
+                    log.info("No achievements returned from API")
                     return
 
+                log.info("Fetched %d achievements from API", len(achievements))
                 last_date = read_last_achievement_date()
 
                 # First run — just save the latest date, don't post anything
                 if not last_date:
                     write_last_achievement_date(achievements[0]["Date"])
+                    log.info("First run — saved baseline date: %s", achievements[0]["Date"])
                     return
 
                 new_entries = [a for a in achievements if a["Date"] > last_date]
                 if not new_entries:
+                    log.info("No new achievements since %s", last_date)
                     return
+
+                log.info("%d new achievement(s) to post", len(new_entries))
 
                 # Post oldest first
                 for achievement in reversed(new_entries):
@@ -419,6 +443,7 @@ def main():
                     skill = achievement["Skill"]
                     xp_raw = achievement.get("Xp", 0)
                     achievement_type = achievement.get("Type", "").lower()
+                    log.info("Posting achievement: %s | %s | %s | type=%s", achievement["Username"], skill, xp_raw, achievement_type)
                     if skill.upper() == "EHP":
                         try:
                             ehp_val = float(xp_raw)
@@ -442,24 +467,33 @@ def main():
                     await channel.send(embed=embed, files=files)
 
                 write_last_achievement_date(new_entries[0]["Date"])
-        except Exception:
-            return
+                log.info("Done — updated last achievement date to %s", new_entries[0]["Date"])
+        except Exception as e:
+            log.error("Error in check_achievements: %s", e, exc_info=True)
 
     @bot.event
     async def on_ready():
+        log.info("Logged in as %s (ID: %s)", bot.user, bot.user.id)
         guild_id = env.get("DISCORD_GUILD_ID")
         if guild_id:
             guild = discord.Object(id=int(guild_id))
             bot.tree.copy_global_to(guild=guild)
             await bot.tree.sync(guild=guild)
+            log.info("Slash commands synced to guild %s", guild_id)
         else:
             await bot.tree.sync()
+            log.info("Slash commands synced globally")
         if not check_achievements.is_running():
             poll_minutes = max(1, int(env.get("TEMPLE_POLL_MINUTES", 5)))
             check_achievements.change_interval(minutes=poll_minutes)
             check_achievements.start()
-        print(f"Logged in as {bot.user}")
-        print("Slash commands synced.")
+            log.info("Achievement polling started (every %d min)", poll_minutes)
+        channel_id = env.get("TEMPLE_ACHIEVEMENTS_CHANNEL_ID")
+        group_id = env.get("TEMPLE_GROUP_ID")
+        if group_id and channel_id:
+            log.info("Achievements: group %s → channel %s", group_id, channel_id)
+        else:
+            log.warning("Achievement polling disabled — TEMPLE_GROUP_ID or TEMPLE_ACHIEVEMENTS_CHANNEL_ID not set")
 
     try:
         bot.run(token, log_handler=None)
