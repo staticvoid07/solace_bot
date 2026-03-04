@@ -135,10 +135,6 @@ def write_last_achievement_date(date: str):
 
 
 def format_xp(xp: int) -> str:
-    if xp >= 1_000_000_000:
-        return f"{xp / 1_000_000_000:.2f}B".rstrip("0").rstrip(".") + " XP"
-    if xp >= 1_000_000:
-        return f"{xp / 1_000_000:.2f}M".rstrip("0").rstrip(".") + " XP"
     return f"{xp:,} XP"
 
 
@@ -387,7 +383,7 @@ def main():
                 description=f"**{achievement['Username']}** reached **{xp_display}** in **{achievement['Skill']}**!",
                 color=discord.Color.blue(),
             )
-            embed.set_author(name="New Achievement!", icon_url=env.get("CLAN_LOGO_URL") or None)
+            embed.set_author(name="\u200b", icon_url=env.get("CLAN_LOGO_URL") or None)
             embed.set_thumbnail(url=icon_url)
             embed.set_footer(text=achievement["Date"])
             await channel.send(embed=embed)
