@@ -401,6 +401,7 @@ def main():
                     logo_file, logo_attachment = await cache_image(session, env.get("CLAN_LOGO_URL", ""))
                     skill = achievement["Skill"]
                     xp_raw = achievement.get("Xp", 0)
+                    achievement_type = achievement.get("Type", "").lower()
                     if skill.upper() == "EHP":
                         try:
                             ehp_val = float(xp_raw)
@@ -408,6 +409,8 @@ def main():
                         except (TypeError, ValueError):
                             ehp_display = str(xp_raw)
                         description = f"**{achievement['Username']}** reached **{ehp_display} EHP**!"
+                    elif achievement_type == "pvm":
+                        description = f"**{achievement['Username']}** reached **{int(xp_raw):,} {skill} kills**!"
                     else:
                         description = f"**{achievement['Username']}** reached **{format_xp(int(xp_raw))}** in **{skill}**!"
                     embed = discord.Embed(
