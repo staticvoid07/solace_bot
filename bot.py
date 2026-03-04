@@ -384,10 +384,10 @@ def main():
             icon_url = f"https://templeosrs.com{achievement.get('Icon', '')}"
             xp_display = format_xp(int(achievement.get("Xp", 0)))
             embed = discord.Embed(
-                title="New Achievement!",
                 description=f"**{achievement['Username']}** reached **{xp_display}** in **{achievement['Skill']}**!",
-                color=discord.Color.gold(),
+                color=discord.Color.blue(),
             )
+            embed.set_author(name="New Achievement!", icon_url="https://templeosrs.com/resources/group-logos/solace_logo_2025_2.webp")
             embed.set_thumbnail(url=icon_url)
             embed.set_footer(text=achievement["Date"])
             await channel.send(embed=embed)
