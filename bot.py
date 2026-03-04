@@ -20,6 +20,23 @@ except ImportError:
 KEYWORD = "#gaming"
 CLAN_FRIEND_ROLE = "Clan Friend"
 
+# Maps raw TempleOSRS skill/boss names to display names
+PVM_NAME_MAP = {
+    "Clue_beginner": "Beginner Clues",
+    "Clue_easy":     "Easy Clues",
+    "Clue_medium":   "Medium Clues",
+    "Clue_hard":     "Hard Clues",
+    "Clue_elite":    "Elite Clues",
+    "Clue_master":   "Master Clues",
+}
+
+
+def pvm_display(raw_name: str) -> tuple[str, str]:
+    """Return (display_name, verb) for a PVM achievement skill name."""
+    display = PVM_NAME_MAP.get(raw_name, raw_name.replace("_", " "))
+    verb = "completed" if "clue" in raw_name.lower() else "kills"
+    return display, verb
+
 
 def load_env():
     """Load key=value pairs from .env file next to this script."""
@@ -410,7 +427,8 @@ def main():
                             ehp_display = str(xp_raw)
                         description = f"**{achievement['Username']}** reached **{ehp_display} EHP**!"
                     elif achievement_type == "pvm":
-                        description = f"**{achievement['Username']}** reached **{int(xp_raw):,} {skill} kills**!"
+                        pvm_name, verb = pvm_display(skill)
+                        description = f"**{achievement['Username']}** reached **{int(xp_raw):,} {pvm_name} {verb}**!"
                     else:
                         description = f"**{achievement['Username']}** reached **{format_xp(int(xp_raw))}** in **{skill}**!"
                     embed = discord.Embed(
