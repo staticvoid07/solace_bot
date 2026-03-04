@@ -122,6 +122,26 @@ def write_blacklist(names: list[str]):
 
 
 LAST_ACHIEVEMENT_PATH = Path(__file__).parent / "last_achievement.txt"
+ICONS_DIR = Path(__file__).parent / "icons"
+
+
+async def cache_image(session: aiohttp.ClientSession, url: str):
+    """Download an image if not already cached. Returns (discord.File, attachment_url) or (None, None)."""
+    if not url:
+        return None, None
+    filename = Path(url.split("?")[0]).name
+    local_path = ICONS_DIR / filename
+    if not local_path.exists():
+        ICONS_DIR.mkdir(exist_ok=True)
+        try:
+            async with session.get(url, headers={"Accept-Encoding": "gzip, deflate"}) as resp:
+                if resp.status == 200:
+                    local_path.write_bytes(await resp.read())
+                else:
+                    return None, None
+        except Exception:
+            return None, None
+    return discord.File(local_path, filename=filename), f"attachment://{filename}"
 
 
 def read_last_achievement_date() -> str:
@@ -357,37 +377,42 @@ def main():
                     if resp.status != 200:
                         return
                     data = await resp.json(content_type=None)
+
+                achievements = data if isinstance(data, list) else data.get("data", [])
+                if not achievements:
+                    return
+
+                last_date = read_last_achievement_date()
+
+                # First run — just save the latest date, don't post anything
+                if not last_date:
+                    write_last_achievement_date(achievements[0]["Date"])
+                    return
+
+                new_entries = [a for a in achievements if a["Date"] > last_date]
+                if not new_entries:
+                    return
+
+                # Post oldest first
+                for achievement in reversed(new_entries):
+                    skill_icon_path = achievement.get("Icon", "")
+                    skill_url = f"https://templeosrs.com{skill_icon_path}" if skill_icon_path else ""
+                    icon_file, icon_attachment = await cache_image(session, skill_url)
+                    logo_file, logo_attachment = await cache_image(session, env.get("CLAN_LOGO_URL", ""))
+                    xp_display = format_xp(int(achievement.get("Xp", 0)))
+                    embed = discord.Embed(
+                        description=f"**{achievement['Username']}** reached **{xp_display}** in **{achievement['Skill']}**!",
+                        color=discord.Color.blue(),
+                    )
+                    embed.set_author(name="New Achievement!", icon_url=logo_attachment or None)
+                    if icon_attachment:
+                        embed.set_thumbnail(url=icon_attachment)
+                    files = [f for f in [logo_file, icon_file] if f]
+                    await channel.send(embed=embed, files=files)
+
+                write_last_achievement_date(new_entries[0]["Date"])
         except Exception:
             return
-
-        achievements = data if isinstance(data, list) else data.get("data", [])
-        if not achievements:
-            return
-
-        last_date = read_last_achievement_date()
-
-        # First run — just save the latest date, don't post anything
-        if not last_date:
-            write_last_achievement_date(achievements[0]["Date"])
-            return
-
-        new_entries = [a for a in achievements if a["Date"] > last_date]
-        if not new_entries:
-            return
-
-        # Post oldest first
-        for achievement in reversed(new_entries):
-            icon_url = f"https://templeosrs.com{achievement.get('Icon', '')}"
-            xp_display = format_xp(int(achievement.get("Xp", 0)))
-            embed = discord.Embed(
-                description=f"**{achievement['Username']}** reached **{xp_display}** in **{achievement['Skill']}**!",
-                color=discord.Color.blue(),
-            )
-            embed.set_author(name="New Achievement!", icon_url=env.get("CLAN_LOGO_URL") or None)
-            embed.set_thumbnail(url=icon_url)
-            await channel.send(embed=embed)
-
-        write_last_achievement_date(new_entries[0]["Date"])
 
     @bot.event
     async def on_ready():
