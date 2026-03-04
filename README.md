@@ -94,7 +94,7 @@ Slash commands synced.
 
 | Command | Description | Who can use it |
 |---------|-------------|----------------|
-| `/monday` | Scan a channel for `#gaming` giveaway entries | Admin, Moderator |
+| `/monday` | Scan a channel for `#gaming` monday giveaway entries | Admin, Moderator |
 | `/monday-blacklist-add` | Add a user to the giveaway blacklist | Admin, Moderator |
 | `/monday-blacklist-remove` | Remove a user from the blacklist | Admin, Moderator |
 | `/monday-blacklist-list` | Show all blacklisted users | Admin, Moderator |
