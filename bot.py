@@ -387,7 +387,7 @@ def main():
                 description=f"**{achievement['Username']}** reached **{xp_display}** in **{achievement['Skill']}**!",
                 color=discord.Color.blue(),
             )
-            embed.set_author(name="New Achievement!", icon_url="https://templeosrs.com/resources/group-logos/solace_logo_2025_2.webp")
+            embed.set_author(name="New Achievement!", icon_url=env.get("CLAN_LOGO_URL") or None)
             embed.set_thumbnail(url=icon_url)
             embed.set_footer(text=achievement["Date"])
             await channel.send(embed=embed)
