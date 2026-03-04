@@ -399,9 +399,19 @@ def main():
                     skill_url = f"https://templeosrs.com{skill_icon_path}" if skill_icon_path else ""
                     icon_file, icon_attachment = await cache_image(session, skill_url)
                     logo_file, logo_attachment = await cache_image(session, env.get("CLAN_LOGO_URL", ""))
-                    xp_display = format_xp(int(achievement.get("Xp", 0)))
+                    skill = achievement["Skill"]
+                    xp_raw = achievement.get("Xp", 0)
+                    if skill.upper() == "EHP":
+                        try:
+                            ehp_val = float(xp_raw)
+                            ehp_display = f"{ehp_val:,.2f}".rstrip("0").rstrip(".")
+                        except (TypeError, ValueError):
+                            ehp_display = str(xp_raw)
+                        description = f"**{achievement['Username']}** reached **{ehp_display} EHP**!"
+                    else:
+                        description = f"**{achievement['Username']}** reached **{format_xp(int(xp_raw))}** in **{skill}**!"
                     embed = discord.Embed(
-                        description=f"**{achievement['Username']}** reached **{xp_display}** in **{achievement['Skill']}**!",
+                        description=description,
                         color=discord.Color.blue(),
                     )
                     embed.set_author(name="New Achievement!", icon_url=logo_attachment or None)
