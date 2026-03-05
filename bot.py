@@ -360,9 +360,9 @@ def main():
                 return
 
             player_data = data.get("data", {})
-            # Priority: uim_ehp → im_ehp → Ehp
+            # Priority: lvl3_ehp → f2p_ehp → 1def_ehp → uim_ehp → im_ehp → Ehp
             ehp = 0
-            for key in ("uim_ehp", "im_ehp", "Ehp"):
+            for key in ("lvl3_ehp", "f2p_ehp", "1def_ehp", "uim_ehp", "im_ehp", "Ehp"):
                 val = player_data.get(key, 0)
                 try:
                     if float(val) != 0:
