@@ -360,16 +360,7 @@ def main():
                 return
 
             player_data = data.get("data", {})
-            # Priority: lvl3_ehp → f2p_ehp → 1def_ehp → uim_ehp → im_ehp → Ehp
-            ehp = 0
-            for key in ("lvl3_ehp", "f2p_ehp", "1def_ehp", "uim_ehp", "im_ehp", "Ehp"):
-                val = player_data.get(key, 0)
-                try:
-                    if float(val) != 0:
-                        ehp = val
-                        break
-                except (TypeError, ValueError):
-                    continue
+            ehp = player_data.get("primary_ehp", 0)
 
             try:
                 ehp_display = f"{float(ehp):,.2f}".rstrip("0").rstrip(".")
