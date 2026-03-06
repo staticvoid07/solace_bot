@@ -333,14 +333,18 @@ def main():
         app_commands.Choice(name="year",  value="year"),
     ])
     async def temple_command(interaction: discord.Interaction, username: str, period: app_commands.Choice[str]):
+        log.info("/temple called by %s — username=%s, period=%s", interaction.user, username, period.value)
         await interaction.response.defer()
 
         try:
             url = f"https://templeosrs.com/api/player_gains.php?player={username}&time={period.value}"
             headers = {"Accept-Encoding": "gzip, deflate"}
+            log.info("Fetching TempleOSRS gains: %s", url)
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=headers) as resp:
+                    log.info("TempleOSRS gains API response: HTTP %s", resp.status)
                     if resp.status != 200:
+                        log.warning("Unexpected status from gains API for %s (%s): %s", username, period.value, resp.status)
                         embed = discord.Embed(
                             title="Request Failed",
                             description=f"TempleOSRS returned status `{resp.status}`.",
@@ -351,6 +355,7 @@ def main():
                     data = await resp.json(content_type=None)
 
             if "Error" in data or "error" in data:
+                log.warning("Player not found on TempleOSRS: %s", username)
                 embed = discord.Embed(
                     title="Player Not Found",
                     description=f"`{username}` was not found on TempleOSRS.\nMake sure the username is correct and has been tracked.",
@@ -360,7 +365,9 @@ def main():
                 return
 
             player_data = data.get("data", {})
-            ehp = player_data.get("primary_ehp", 0)
+            primary_key = player_data.get("Primary_ehp", "Ehp")
+            ehp = player_data.get(primary_key, 0)
+            log.info("EHP for %s (%s): primary_key=%s value=%s", username, period.value, primary_key, ehp)
 
             try:
                 ehp_display = f"{float(ehp):,.2f}".rstrip("0").rstrip(".")
@@ -375,6 +382,7 @@ def main():
             await interaction.followup.send(embed=embed)
 
         except Exception as e:
+            log.error("Error in /temple for %s (%s): %s", username, period.value, e, exc_info=True)
             embed = discord.Embed(
                 title="Something went wrong",
                 description=f"```{e}```",
