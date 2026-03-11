@@ -106,6 +106,7 @@ async def run_monday_scan(bot: commands.Bot, channel_id: int, after_message_id: 
                 )
                 entries.append({
                     "User": msg.author.display_name,
+                    "Username": msg.author.name,
                     "UserId": str(msg.author.id),
                     "ClanFriend": is_clan_friend,
                 })
@@ -270,12 +271,22 @@ def main():
             await interaction.followup.send(embed=embed)
             return
 
+        all_entries = result["regular"] + result["clan_friends"]
+        name_counts = {}
+        for e in all_entries:
+            name_counts[e["User"]] = name_counts.get(e["User"], 0) + 1
+
+        def fmt(e):
+            if name_counts[e["User"]] > 1:
+                return f"{e['User']} ({e['Username']})"
+            return e["User"]
+
         files = []
         if result["regular"]:
-            content = "\n".join(e["User"] for e in result["regular"]).encode("utf-8")
+            content = "\n".join(fmt(e) for e in result["regular"]).encode("utf-8")
             files.append(discord.File(io.BytesIO(content), filename="monday-entries.txt"))
         if result["clan_friends"]:
-            content = "\n".join(e["User"] for e in result["clan_friends"]).encode("utf-8")
+            content = "\n".join(fmt(e) for e in result["clan_friends"]).encode("utf-8")
             files.append(discord.File(io.BytesIO(content), filename="monday-entries-clan-friend.txt"))
 
         await interaction.followup.send(embed=embed)
